@@ -1,0 +1,10 @@
+char AnalyzeFastaReads(int preprocess, int verbose);
+char AnalyzeFastaQReads(int preprocess, int verbose);
+char AnalyzeSffReads(int preprocess, int verbose);
+int LoadNextReadFromFasta();
+int LoadNextReadFromFastaQ();
+int LoadNextReadFromSff();
+int LoadNextReadPairFromFasta();
+int LoadNextReadPairFromFastaQ();
+int LoadNextReadPairFromSff();
+void SplitPairedEndSff(char *sfffilename);

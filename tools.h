@@ -1,0 +1,18 @@
+char* AppendToBasename(char *filename, char *extra);
+char *NormalizeSeqName(char *name, int mode);
+int ParseArgument(int numargs, char** arglist, char *optionchars, int parse);
+int *ParseMultiArgument(int numargs, char** arglist, char *optionchars, int *count);
+void PrintNumber(long long int number);
+void PrintUnsignedNumber(unsigned int number);
+void PrintTime(double timeval);
+void PrintProgressBar(double percentage, int lineabove);
+void CleanFasta(char *fastafilename);
+void ConvertSFF(char *sfffilename);
+void ConvertFastaQ(char *fastaqfilename);
+void CalculateCoverage(char *positionsfilename, int genomesize);
+void ProcessSamFile(char *samfilename, int totalnumreads);
+void Process454File(char *rsfilename);
+void ProcessMapFile(char *mapfilename, int totalnumreads);
+void ProcessSoapFile(char *soapfilename, int totalnumreads);
+void fread16be(unsigned short *dest, FILE *file);
+void fread32be(unsigned int *dest, FILE *file);
