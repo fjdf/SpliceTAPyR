@@ -1678,63 +1678,65 @@ void RunSeededAlignment(){
 								d = (int)(ssp - k); // difference between seed starting position (possibly to the left) and splice site position (possibly to the right)
 								n = (seedPositions[i]->readpos) + d; // account for that difference in the seed's starting position in the read
 								n--; // next position on the left to match in the read
-								m = 0; // number of matched chars
-								charPtrAtRead = (char *)(read + n); // pointer to the char at the left of the beginning of the seed (corrected for the difference)
-								charPtrAtGenome = (char *)(refGenome + p); // pointer to the char at the rightmost end of the left exon
-								while ((*charPtrAtRead) == (*charPtrAtGenome)) { // while the characters in the read and in the genome match,
-									m++;
-									n--;
-									p--;
-									if ((charPtrAtRead == read) || (charPtrAtGenome == refGenome)) break; // ensure that the new seed does not overlap the existing one on the left
-									charPtrAtRead--; // keep advancing both pointer to the left
-									charPtrAtGenome--;
+								if (n >= 0) {
+									m = 0; // number of matched chars
+									charPtrAtRead = (char *)(read + n); // pointer to the char at the left of the beginning of the seed (corrected for the difference)
+									charPtrAtGenome = (char *)(refGenome + p); // pointer to the char at the rightmost end of the left exon
+									while ((*charPtrAtRead) == (*charPtrAtGenome)) { // while the characters in the read and in the genome match,
+										m++;
+										n--;
+										p--;
+										if ((charPtrAtRead == read) || (charPtrAtGenome == refGenome)) break; // ensure that the new seed does not overlap the existing one on the left
+										charPtrAtRead--; // keep advancing both pointer to the left
+										charPtrAtGenome--;
+									}
+									if (m > 0) { // if some chars were matched, create a new seed to the left
+										seedPositions[i]->pos += d; // but first change the current seed to begin exactly at the splice site's (right) position
+										seedPositions[i]->readpos += d;
+										seedPositions[i]->size -= d;
+										numSeedsAddedBySpliceSites++;
+										numExtraSeedHits++;
+										d = (numTotalSeedHits + numExtraSeedHits); // new seed hit id (+1)
+										if (d > maxSeedArraysSize) { // reallocate the arrays if needed
+											fwdSeedPositions = (SeedPos **)realloc(fwdSeedPositions, d * sizeof(SeedPos *));
+											for (j = maxSeedArraysSize; j < d; j++) {
+												fwdSeedPositions[j] = (SeedPos *)malloc(sizeof(SeedPos));
+											}
+											revSeedPositions = (SeedPos **)realloc(revSeedPositions, d * sizeof(SeedPos *));
+											for (j = maxSeedArraysSize; j < d; j++) {
+												revSeedPositions[j] = (SeedPos *)malloc(sizeof(SeedPos));
+											}
+											maxSeedArraysSize = d;
+											fwdSeedChainSizes = (int *)realloc(fwdSeedChainSizes, maxSeedArraysSize * sizeof(int));
+											fwdSeedChainScores = (int *)realloc(fwdSeedChainScores, maxSeedArraysSize * sizeof(int));
+											fwdSeedChainStarts = (int *)realloc(fwdSeedChainStarts, maxSeedArraysSize * sizeof(int));
+											revSeedChainSizes = (int *)realloc(revSeedChainSizes, maxSeedArraysSize * sizeof(int));
+											revSeedChainScores = (int *)realloc(revSeedChainScores, maxSeedArraysSize * sizeof(int));
+											revSeedChainStarts = (int *)realloc(revSeedChainStarts, maxSeedArraysSize * sizeof(int));
+											bestSeedChains = (int *)realloc(bestSeedChains, maxSeedArraysSize * sizeof(int));
+											bestSeedChainsStrands = (char *)realloc(bestSeedChainsStrands, maxSeedArraysSize * sizeof(char));
+											if (strand == '+') { // reload modified array variables for the current strand
+												seedPositions = fwdSeedPositions;
+												seedChainSizes = fwdSeedChainSizes;
+												seedChainScores = fwdSeedChainScores;
+												seedChainStarts = fwdSeedChainStarts;
+											}
+											else {
+												seedPositions = revSeedPositions;
+												seedChainSizes = revSeedChainSizes;
+												seedChainScores = revSeedChainScores;
+												seedChainStarts = revSeedChainStarts;
+											}
+										} // realloc arrays
+										d--; // d-th seed goes in the (d-1)-th position
+										seedPositions[d]->seed = (s + 1); // seed id of the seed to the left
+										seedPositions[d]->size = m;
+										seedPositions[d]->pos = (p + 1); // +1 because the last position was a mismatch
+										seedPositions[d]->readpos = (n + 1);
+										// TODO: correctly fill this with splice site id to indicate that the seed was created from that splice site, and don't have to go get the id later on
+										seedPositions[d]->ssId = 1;
+									} // create new seed
 								}
-								if (m > 0) { // if some chars were matched, create a new seed to the left
-									seedPositions[i]->pos += d; // but first change the current seed to begin exactly at the splice site's (right) position
-									seedPositions[i]->readpos += d;
-									seedPositions[i]->size -= d;
-									numSeedsAddedBySpliceSites++;
-									numExtraSeedHits++;
-									d = (numTotalSeedHits + numExtraSeedHits); // new seed hit id (+1)
-									if (d > maxSeedArraysSize) { // reallocate the arrays if needed
-										fwdSeedPositions = (SeedPos **)realloc(fwdSeedPositions, d * sizeof(SeedPos *));
-										for (j = maxSeedArraysSize; j < d; j++) {
-											fwdSeedPositions[j] = (SeedPos *)malloc(sizeof(SeedPos));
-										}
-										revSeedPositions = (SeedPos **)realloc(revSeedPositions, d * sizeof(SeedPos *));
-										for (j = maxSeedArraysSize; j < d; j++) {
-											revSeedPositions[j] = (SeedPos *)malloc(sizeof(SeedPos));
-										}
-										maxSeedArraysSize = d;
-										fwdSeedChainSizes = (int *)realloc(fwdSeedChainSizes, maxSeedArraysSize * sizeof(int));
-										fwdSeedChainScores = (int *)realloc(fwdSeedChainScores, maxSeedArraysSize * sizeof(int));
-										fwdSeedChainStarts = (int *)realloc(fwdSeedChainStarts, maxSeedArraysSize * sizeof(int));
-										revSeedChainSizes = (int *)realloc(revSeedChainSizes, maxSeedArraysSize * sizeof(int));
-										revSeedChainScores = (int *)realloc(revSeedChainScores, maxSeedArraysSize * sizeof(int));
-										revSeedChainStarts = (int *)realloc(revSeedChainStarts, maxSeedArraysSize * sizeof(int));
-										bestSeedChains = (int *)realloc(bestSeedChains, maxSeedArraysSize * sizeof(int));
-										bestSeedChainsStrands = (char *)realloc(bestSeedChainsStrands, maxSeedArraysSize * sizeof(char));
-										if (strand == '+') { // reload modified array variables for the current strand
-											seedPositions = fwdSeedPositions;
-											seedChainSizes = fwdSeedChainSizes;
-											seedChainScores = fwdSeedChainScores;
-											seedChainStarts = fwdSeedChainStarts;
-										}
-										else {
-											seedPositions = revSeedPositions;
-											seedChainSizes = revSeedChainSizes;
-											seedChainScores = revSeedChainScores;
-											seedChainStarts = revSeedChainStarts;
-										}
-									} // realloc arrays
-									d--; // d-th seed goes in the (d-1)-th position
-									seedPositions[d]->seed = (s + 1); // seed id of the seed to the left
-									seedPositions[d]->size = m;
-									seedPositions[d]->pos = (p + 1); // +1 because the last position was a mismatch
-									seedPositions[d]->readpos = (n + 1);
-									// TODO: correctly fill this with splice site id to indicate that the seed was created from that splice site, and don't have to go get the id later on
-									seedPositions[d]->ssId = 1;
-								} // create new seed
 							} // splice site check
 						} // left gap check
 						if (i != (numTotalSeedHits - 1)) { // get size of gap between this seed and the next one
@@ -1757,61 +1759,63 @@ void RunSeededAlignment(){
 								d = (int)(k - ssp); // difference between seed ending position (possibly to the right) and splice site position (possibly to the left)
 								n = ((seedPositions[i]->readpos) + (seedPositions[i]->size)); // next position on the right to match in the read
 								n -= d; // account for that difference in the seed's ending position in the read
-								m = 0; // number of matched chars
-								charPtrAtRead = (char *)(read + n); // pointer to the char at the right of the ending of the seed (corrected for the difference)
-								charPtrAtGenome = (char *)(refGenome + p); // pointer to the char at the leftmost end of the right exon
-								while ((*charPtrAtRead) == (*charPtrAtGenome)) { // while the characters in the read and in the genome match,
-									m++;
-									n++;
-									p++;
-									if (((*charPtrAtRead) == '\0') || ((*charPtrAtGenome) == '\0')) break; // ensure that the new seed does not overlap the existing one on the right
-									charPtrAtRead++; // keep advancing both pointer to the right
-									charPtrAtGenome++;
+								if (n < readSize) {
+									m = 0; // number of matched chars
+									charPtrAtRead = (char *)(read + n); // pointer to the char at the right of the ending of the seed (corrected for the difference)
+									charPtrAtGenome = (char *)(refGenome + p); // pointer to the char at the leftmost end of the right exon
+									while ((*charPtrAtRead) == (*charPtrAtGenome)) { // while the characters in the read and in the genome match,
+										m++;
+										n++;
+										p++;
+										if (((*charPtrAtRead) == '\0') || ((*charPtrAtGenome) == '\0')) break; // ensure that the new seed does not overlap the existing one on the right
+										charPtrAtRead++; // keep advancing both pointer to the right
+										charPtrAtGenome++;
+									}
+									if (m > 0) { // if some chars were matched, create a new seed to the right
+										seedPositions[i]->size -= d; // but first change the current seed to end exactly at the splice site's (left) position
+										numSeedsAddedBySpliceSites++;
+										numExtraSeedHits++;
+										d = (numTotalSeedHits + numExtraSeedHits); // new seed hit id (+1)
+										if (d > maxSeedArraysSize) { // reallocate the arrays if needed
+											fwdSeedPositions = (SeedPos **)realloc(fwdSeedPositions, d * sizeof(SeedPos *));
+											for (j = maxSeedArraysSize; j < d; j++) {
+												fwdSeedPositions[j] = (SeedPos *)malloc(sizeof(SeedPos));
+											}
+											revSeedPositions = (SeedPos **)realloc(revSeedPositions, d * sizeof(SeedPos *));
+											for (j = maxSeedArraysSize; j < d; j++) {
+												revSeedPositions[j] = (SeedPos *)malloc(sizeof(SeedPos));
+											}
+											maxSeedArraysSize = d;
+											fwdSeedChainSizes = (int *)realloc(fwdSeedChainSizes, maxSeedArraysSize * sizeof(int));
+											fwdSeedChainScores = (int *)realloc(fwdSeedChainScores, maxSeedArraysSize * sizeof(int));
+											fwdSeedChainStarts = (int *)realloc(fwdSeedChainStarts, maxSeedArraysSize * sizeof(int));
+											revSeedChainSizes = (int *)realloc(revSeedChainSizes, maxSeedArraysSize * sizeof(int));
+											revSeedChainScores = (int *)realloc(revSeedChainScores, maxSeedArraysSize * sizeof(int));
+											revSeedChainStarts = (int *)realloc(revSeedChainStarts, maxSeedArraysSize * sizeof(int));
+											bestSeedChains = (int *)realloc(bestSeedChains, maxSeedArraysSize * sizeof(int));
+											bestSeedChainsStrands = (char *)realloc(bestSeedChainsStrands, maxSeedArraysSize * sizeof(char));
+											if (strand == '+') { // reload modified array variables for the current strand
+												seedPositions = fwdSeedPositions;
+												seedChainSizes = fwdSeedChainSizes;
+												seedChainScores = fwdSeedChainScores;
+												seedChainStarts = fwdSeedChainStarts;
+											}
+											else {
+												seedPositions = revSeedPositions;
+												seedChainSizes = revSeedChainSizes;
+												seedChainScores = revSeedChainScores;
+												seedChainStarts = revSeedChainStarts;
+											}
+										} // realloc arrays
+										d--; // d-th seed goes in the (d-1)-th position
+										seedPositions[d]->seed = (s - 1); // seed id of the seed to the right
+										seedPositions[d]->size = m;
+										seedPositions[d]->pos = (p - m); // position of first matched char (the current position is a mismatch)
+										seedPositions[d]->readpos = (n - m);
+										// TODO: correctly fill this with splice site id to indicate that the seed was created from that splice site, and don't have to go get the id later on
+										seedPositions[d]->ssId = 1;
+									} // create new seed
 								}
-								if (m > 0) { // if some chars were matched, create a new seed to the right
-									seedPositions[i]->size -= d; // but first change the current seed to end exactly at the splice site's (left) position
-									numSeedsAddedBySpliceSites++;
-									numExtraSeedHits++;
-									d = (numTotalSeedHits + numExtraSeedHits); // new seed hit id (+1)
-									if (d > maxSeedArraysSize) { // reallocate the arrays if needed
-										fwdSeedPositions = (SeedPos **)realloc(fwdSeedPositions, d * sizeof(SeedPos *));
-										for (j = maxSeedArraysSize; j < d; j++) {
-											fwdSeedPositions[j] = (SeedPos *)malloc(sizeof(SeedPos));
-										}
-										revSeedPositions = (SeedPos **)realloc(revSeedPositions, d * sizeof(SeedPos *));
-										for (j = maxSeedArraysSize; j < d; j++) {
-											revSeedPositions[j] = (SeedPos *)malloc(sizeof(SeedPos));
-										}
-										maxSeedArraysSize = d;
-										fwdSeedChainSizes = (int *)realloc(fwdSeedChainSizes, maxSeedArraysSize * sizeof(int));
-										fwdSeedChainScores = (int *)realloc(fwdSeedChainScores, maxSeedArraysSize * sizeof(int));
-										fwdSeedChainStarts = (int *)realloc(fwdSeedChainStarts, maxSeedArraysSize * sizeof(int));
-										revSeedChainSizes = (int *)realloc(revSeedChainSizes, maxSeedArraysSize * sizeof(int));
-										revSeedChainScores = (int *)realloc(revSeedChainScores, maxSeedArraysSize * sizeof(int));
-										revSeedChainStarts = (int *)realloc(revSeedChainStarts, maxSeedArraysSize * sizeof(int));
-										bestSeedChains = (int *)realloc(bestSeedChains, maxSeedArraysSize * sizeof(int));
-										bestSeedChainsStrands = (char *)realloc(bestSeedChainsStrands, maxSeedArraysSize * sizeof(char));
-										if (strand == '+') { // reload modified array variables for the current strand
-											seedPositions = fwdSeedPositions;
-											seedChainSizes = fwdSeedChainSizes;
-											seedChainScores = fwdSeedChainScores;
-											seedChainStarts = fwdSeedChainStarts;
-										}
-										else {
-											seedPositions = revSeedPositions;
-											seedChainSizes = revSeedChainSizes;
-											seedChainScores = revSeedChainScores;
-											seedChainStarts = revSeedChainStarts;
-										}
-									} // realloc arrays
-									d--; // d-th seed goes in the (d-1)-th position
-									seedPositions[d]->seed = (s - 1); // seed id of the seed to the right
-									seedPositions[d]->size = m;
-									seedPositions[d]->pos = (p - m); // position of first matched char (the current position is a mismatch)
-									seedPositions[d]->readpos = (n - m);
-									// TODO: correctly fill this with splice site id to indicate that the seed was created from that splice site, and don't have to go get the id later on
-									seedPositions[d]->ssId = 1;
-								} // create new seed
 							} // splice site check
 						} // left gap check
 						prevs = s;
