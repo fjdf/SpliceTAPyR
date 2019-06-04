@@ -555,6 +555,7 @@ int LoadNextReadFromSff(){
 	uint16_t sff_clip_qual_right;
 	uint16_t sff_clip_adapter_left;
 	uint16_t sff_clip_adapter_right;
+	size_t ncount = 0; ncount = (size_t)ncount;
 	if( sffReadsCount == ((int)sff_number_of_reads) ) return 0; // check if we already processed all reads inside file (to prevent reading incorrect data from the index at the end of the file)
 	for(i=0;i<2;i++) c=fgetc(readsFile); // skip 2 bytes: read_header_length[2]
 	fread16be(&sff_name_length,readsFile); // name_length[2]
@@ -572,7 +573,7 @@ int LoadNextReadFromSff(){
 	else end_base_pos = sff_clip_adapter_right;
 	end_base_pos--; // convert to 0-based array
 	number_of_bases = ( end_base_pos - start_base_pos + 1 ); // real size of the read after clipping ends
-	fread(readName,sizeof(char),(size_t)sff_name_length,readsFile); // name[name_length]
+	ncount = fread(readName,sizeof(char),(size_t)sff_name_length,readsFile); // name[name_length]
 	readName[sff_name_length] = '\0'; // add terminator char to string
 	padding_size = ( ( 8 - ( ( 16 + sff_name_length ) & 7 ) ) & 7 );
 	n = ( start_base_pos ); // skip the left clipped bases

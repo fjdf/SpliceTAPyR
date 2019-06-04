@@ -12,6 +12,7 @@
 #define MISMATCH 1
 #define GAP 1
 
+#if defined DEBUG || defined DEBUGDP
 void PrintBandedDPMatrix(char *pattern, int m, char *text, int n, int maxerrors){
 	int i, j, ii, mm;
 	char c;
@@ -52,6 +53,7 @@ void PrintBandedDPMatrix(char *pattern, int m, char *text, int n, int maxerrors)
 	}
 	fprintf(debugfile,"\n");
 }
+#endif
 
 // Performs banded dynamic programming on the read segments between the seeds
 // NOTE: seedlocation is 0 on the leftmost end of the read and -1 on the rightmost end of the read
@@ -325,6 +327,8 @@ int BasicDynamicProgramming(char *text, int txtsize, char *pattern, int patsize)
 	static int **dpmatrix = NULL;
 	static int maxrows = 0;
 	static int maxcols = 0;
+	bestcol = 0; // to prevent un-initialized variable warning
+	bestcol = (int)bestcol;
 	/*
 	static char **dpdirections, *alignedtxt, *alignedpat, dir;
 	static int inscount, delcount, miscount, alignsize;
@@ -476,6 +480,8 @@ void GetRealErrorStatistics(char *reffilename, char *readsfilename, char *samfil
 	int i, n, m, refsize, readpos, readsize, sameread, maxreadsize;
 	int realnumreads, numreads, numalignedreads, numerrors, prevnumerrors, strand;
 	unsigned totalnumchars, totalnumerrors;
+	int nret = 0; // number of items returned by fscanf
+	nret = (int)nret; // prevent unused variable warning
 	printf("> Processing reference file <%s> ... ",reffilename);
 	fflush(stdout);
 	if((reffile=fopen(reffilename,"r"))==NULL){
@@ -618,7 +624,7 @@ void GetRealErrorStatistics(char *reffilename, char *readsfilename, char *samfil
 		c=fgetc(samfile);
 		while(c!='\t' && c!=EOF) c=fgetc(samfile); // skip FLAG
 		*/
-		fscanf(samfile,"%d\t",&n); // get FLAG
+		nret = fscanf(samfile,"%d\t",&n); // get FLAG
 		if((n & 16) != strand){ // different strand from the read chars
 			strand=(n & 16); // set new strand
 			for(i=0;i<readsize;i++){ // complement all the read chars
@@ -643,7 +649,7 @@ void GetRealErrorStatistics(char *reffilename, char *readsfilename, char *samfil
 		}
 		while(c!='\t' && c!=EOF) c=fgetc(samfile); // skip RNAME
 		readpos=0;
-		fscanf(samfile,"%d\t",&readpos); // get POS
+		nret = fscanf(samfile,"%d\t",&readpos); // get POS
 		if(readpos==0 || readpos>=refsize){
 			while(c!='\n' && c!=EOF) c=fgetc(samfile);
 			continue;

@@ -481,7 +481,7 @@ void PrintReadInSAMFormat(char *read, char *readName, char strand, unsigned int 
 	#ifdef DEBUG
 	fprintf(outputFile,"\tNM:i:%d",numErrors);
 	#else
-	numErrors = 0; // just so compiler does not complain about unused variable
+	numErrors = numErrors; // just so compiler does not complain about unused variable
 	#endif
 	fprintf(outputFile,"\n");
 	#ifdef DEBUG
@@ -664,6 +664,7 @@ void PrintReadPair(){
 	currentPair = 1; // set to 1, so the next read will be loaded from the correct reads file
 }
 
+#if defined DEBUG || defined DEBUGDP
 void PrintSeeds(Read *read, char strand, int detailedmode){
 	char *readChars;
 	int numSeeds, seedId, seedPos, i;
@@ -709,6 +710,7 @@ void PrintSeeds(Read *read, char strand, int detailedmode){
 		fputc('\n',debugfile);
 	}
 }
+#endif
 
 void GetSeeds(Read *read){
 	unsigned int topPtr, bottomPtr;
@@ -819,16 +821,23 @@ void GetImprovedSeeds(Read *read){
 	int seedExtraSize, numSeeds, seedId;
 	int seedPos, seedOldLeftPos, seedNewLeftPos, seedOldRightPos, seedNewRightPos, rightmostPos;
 	unsigned int numOccs;
-	char *readChars, strandcount, strandchar, c;
+	char *readChars, strandcount, c;
+	#ifdef DEBUG
+	char strandchar;
+	#endif
 	Seed *seed;
 	Strand *strand;
 	for(strandcount=0;strandcount<2;strandcount++){
 		if(strandcount==0){ // forward strand
 			strand=&(read->fwdStrand);
+			#ifdef DEBUG
 			strandchar='+';
+			#endif
 		} else { // reverse strand
 			strand=&(read->revStrand);
+			#ifdef DEBUG
 			strandchar='-';
+			#endif
 		}
 		numSeeds=(strand->numSeeds);
 		if(numSeeds==0) continue;
@@ -1821,12 +1830,12 @@ void RunSeededAlignment(){
 						prevs = s;
 						prevk = (seedPositions[i]->pos) + (seedPositions[i]->size) - 1; // rightmost char position of this seed
 					} // end of loop for all seed hits
+					// TODO: add extra linked list pointers in the seeds' struct, so they do not need to be sorted again
+					if (numExtraSeedHits != 0) { // sort the seeds again, in case some new ones were added
+						numTotalSeedHits += numExtraSeedHits;
+						qsort(seedPositions, numTotalSeedHits, sizeof(SeedPos*), CompareSeedPositions);
+					}
 				} // RNA-Seq mode
-				// TODO: add extra linked list pointers in the seeds' struct, so they do not need to be sorted again
-				if (numExtraSeedHits != 0) { // sort the seeds again, in case some new ones were added
-					numTotalSeedHits += numExtraSeedHits;
-					qsort(seedPositions, numTotalSeedHits, sizeof(SeedPos *), CompareSeedPositions);
-				}
 				/********************/
 				/* End RNA-Seq Code */
 				/********************/
@@ -2609,18 +2618,21 @@ int main(int argc, char *argv[]) {
 	double timetb;
 	int n;
 	unsigned int k;
-	char *indexfilename, *outputfilename, *unalignedreadsfilename, *debugfilename, c;
+	char *indexfilename, *outputfilename, *unalignedreadsfilename, c;
 	int *distsarray, *stddevsarray, nd, ns, id, is;
 	int argMinIdentity,argMaxErrors,argMaxHits;
+	#if defined DEBUG || defined DEBUGDP
+	char* debugfilename;
+	#endif
 	//for(n=0;n<=255;n++){printf("[%.3d:%.2X:'%c']",n,n,n);}printf("\n");
 	ConsoleDrawBoxChar("TL",0);
-	n=(27+(int)strlen(VERSION));
+	n=(19+(int)strlen(VERSION));
 	ConsoleDrawBoxChar("T",n);
 	ConsoleDrawBoxChar("TR",0);
 	printf("\n");
 	ConsoleDrawBoxChar("L",0);
 	ConsoleSetTextColor(COLOR_BRIGHT, COLOR_RED, COLOR_WHITE); // bright, red font, white background
-	printf(" [Splice][T][A][P][y][R] v%s ",VERSION);
+	printf(" [T][A][P][y][R] v%s ",VERSION);
 	ConsoleResetTextColor(); // reset colors
 	ConsoleDrawBoxChar("R",0);
 	#ifdef DEBUG
@@ -2628,11 +2640,11 @@ int main(int argc, char *argv[]) {
 	#endif
 	printf(" (%s %s)\n",__DATE__,__TIME__);
 	ConsoleDrawBoxChar("BL",0);
-	n=(27+(int)strlen(VERSION));
+	n=(19+(int)strlen(VERSION));
 	ConsoleDrawBoxChar("B",n);
 	ConsoleDrawBoxChar("BR",0);
 	printf("\n");
-	if(argc<2){
+	if(argc<3){
 		printf("> USAGE:\n");
 		printf("\nBuild index:\n");
 		ConsoleSetTextColor(COLOR_BRIGHT, COLOR_WHITE, COLOR_BLACK);
@@ -2662,7 +2674,7 @@ int main(int argc, char *argv[]) {
 		printf("\t-ss\t\tboth mate reads must be on the Same Strand ( optional ; default=none )\n");
 		printf("\t-os\t\tboth mate reads must be on Opposite Strands ( optional ; default=none )\n");
 		printf("\nOptions for Transcriptomics:\n");
-		//printf("\t-r\t\tenable splice-aware mapping for Rna-seq reads ( required ; default=on )\n");
+		printf("\t-r\t\tenable splice-aware mapping for Rna-seq reads ( optional ; default=off )\n");
 		printf("\t-min\t\tMINimum intron length ( optional ; default=50 )\n");
 		printf("\t-max\t\tMAXimum intron length ( optional ; default=500000 )\n");
 		printf("\nOptions for Metagenomics:\n");
@@ -2803,9 +2815,9 @@ int main(int argc, char *argv[]) {
 	singleRefReadsOnly = ParseArgument(argc,argv,"S",0);
 	
 	pairedEndReadsMode = ParseArgument(argc,argv,"P",0);
-	//rnaSequencingMode = ParseArgument(argc,argv,"R",0);
-	// Enable RNA Sequencing Mode by default
-	rnaSequencingMode = 1;
+	
+	// Enable RNA Sequencing Mode or not
+	rnaSequencingMode = ParseArgument(argc,argv,"R",0);
 	
 	if(rnaSequencingMode){ // get rna-seq options and load defaults if needed
 		if( ( minIntronLength = ParseArgument(argc,argv,"MI",1) ) < 0 ) minIntronLength=50;
@@ -2816,8 +2828,6 @@ int main(int argc, char *argv[]) {
 	genomefilename=NULL;
 	unalignedreadsfilename=NULL;
 	errorsFile=NULL;
-	debugfile=NULL;
-	debugfilename=NULL;
 	readsFiles=NULL;
 	readsFilenames=NULL;
 	readsFile=NULL;

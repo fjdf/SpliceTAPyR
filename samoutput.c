@@ -39,6 +39,8 @@ void ReportSAMStatistics(char *reffilename, char *samfilename, unsigned int real
 	unsigned long long int totalnumsplicingevents, totalnumintronschars, *splicesignalscount;
 	double splicesignalpct, avgsplicingperread;
 	char splicesignal[5];
+	splicesignal[0] = '\0'; splicesignal[1] = splicesignal[0]; // to prevent unused variable warnings
+	int nret = 0; nret = (int)nret;
 	printf("> Processing reference file <%s> ... ",reffilename);
 	fflush(stdout);
 	if((reffile=fopen(reffilename,"r"))==NULL){
@@ -270,7 +272,7 @@ void ReportSAMStatistics(char *reffilename, char *samfilename, unsigned int real
 			while(c!='\t' && c!=EOF) c=fgetc(samfile);
 		}
 		readpos=0;
-		fscanf(samfile,"%d",&readpos); // get read mapped position
+		nret = fscanf(samfile,"%d",&readpos); // get read mapped position
 		if(readpos>0) readpos--; // fix 1-based location
 		for(i=0;i<2;i++){ // advance 2 more tabs (CIGAR string)
 			c=fgetc(samfile);
@@ -528,7 +530,7 @@ void ReportSAMStatistics(char *reffilename, char *samfilename, unsigned int real
 					if(c!='i') continue;
 					c=fgetc(samfile);
 					if(c!=':') continue;
-					fscanf(samfile,"%d",&numsamerrors);
+					nret = fscanf(samfile,"%d",&numsamerrors);
 					break;
 				}
 			}
@@ -664,6 +666,8 @@ void EvaluateSAMPositions(char *samfilename, int savewrongreads){
 	unsigned int numreads, numcorrectreads, numwrongreads, nummappedreads, numunmappedreads;
 	int numreadhits, maxreadhits, totalreadhits;
 	fpos_t readnamefpos, readcharsfpos;
+	int nret = 0; nret = (int)nret;
+	strand = '+'; strand = (char)strand;
 	printf("> Processing SAM file <%s> ... ",samfilename);
 	fflush(stdout);
 	if((samfile=fopen(samfilename,"r"))==NULL){
@@ -739,17 +743,17 @@ void EvaluateSAMPositions(char *samfilename, int savewrongreads){
 					break;
 				}
 			}
-			fscanf(samfile,"%d",&(correctreadpos[0])); // get correct (left) position
+			nret = fscanf(samfile,"%d",&(correctreadpos[0])); // get correct (left) position
 			for(i=0;i<1;i++){ // advance to the next underscore
 				c=fgetc(samfile);
 				while(c!='_' && c!=EOF) c=fgetc(samfile);
 			}
-			fscanf(samfile,"%d",&(correctreadpos[1])); // get correct (right) position
+			nret = fscanf(samfile,"%d",&(correctreadpos[1])); // get correct (right) position
 			while(c!='\t' && c!=EOF) c=fgetc(samfile); // advance to next tab (flag)
 		} else { // not a new read
 			numreadhits++; // another hit for the same read
 		}
-		fscanf(samfile,"%d",&i); // get flag
+		nret = fscanf(samfile,"%d",&i); // get flag
 		if( i & 16 ) strand='-'; // get strand
 		else strand='+';
 		c=fgetc(samfile); // get '\t'
@@ -757,7 +761,7 @@ void EvaluateSAMPositions(char *samfilename, int savewrongreads){
 		c=fgetc(samfile);
 		while(c!='\t' && c!=EOF) c=fgetc(samfile); // advance to next tab (position)
 		readpos=0;
-		fscanf(samfile,"%d",&readpos); // get read mapped position
+		nret = fscanf(samfile,"%d",&readpos); // get read mapped position
 		for(i=0;i<6;i++){ // advance 6 more tabs (sequence)
 			c=fgetc(samfile);
 			while(c!='\t' && c!=EOF) c=fgetc(samfile);
@@ -882,6 +886,7 @@ void ConvertSAMToCSV(char *samfilename){
 	unsigned int readsarraysize;
 	ReadPositionAndFPos *readsarray;
 	fpos_t readlinestart;
+	int nret = 0; nret = (int)nret;
 	printf("> Opening SAM file <%s> ... ",samfilename);
 	fflush(stdout);
 	if((samfile=fopen(samfilename,"r"))==NULL){
@@ -911,7 +916,7 @@ void ConvertSAMToCSV(char *samfilename){
 		}
 		while(c!='\t' && c!=EOF) c=fgetc(samfile); // skip ref name
 		readpos=0;
-		fscanf(samfile,"%d\t",&readpos); // read position
+		nret = fscanf(samfile,"%d\t",&readpos); // read position
 		if(readpos==0){ // no pos
 			while(c!='\n' && c!=EOF) c=fgetc(samfile);
 			continue;
@@ -950,7 +955,7 @@ void ConvertSAMToCSV(char *samfilename){
 			c=fgetc(samfile);
 		}
 		readname[i]='\0';
-		fscanf(samfile,"%d\t",&flag); // flag
+		nret = fscanf(samfile,"%d\t",&flag); // flag
 		if( flag & 16 ) strand='-';
 		else strand='+';
 		i=0;
@@ -961,7 +966,7 @@ void ConvertSAMToCSV(char *samfilename){
 		}
 		refname[i]='\0';
 		readpos=0;
-		fscanf(samfile,"%d\t",&readpos); // read position
+		nret = fscanf(samfile,"%d\t",&readpos); // read position
 		fprintf(txtfile,"%d,%c,%s,%s,",readpos,strand,readname,refname); // write to file
 		for(i=0;i<5;i++){ // skip MAPQ, CIGAR, RNEXT, PNEXT, TLEN
 			c=fgetc(samfile);

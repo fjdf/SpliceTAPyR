@@ -401,6 +401,7 @@ void FMI_LoadIndex(char *indexfilename){
 	long long int seqstart, seqend, seqsize;
 	char c;
 	char fileHeader[5] = FILEHEADER;
+	size_t ncount = 0; ncount = (size_t)ncount;
 	printf("> Loading index from file <%s> ... ",indexfilename);
 	fflush(stdout);
 	indexfile = fopen(indexfilename,"rb");
@@ -416,7 +417,7 @@ void FMI_LoadIndex(char *indexfilename){
 	printf("(");PrintNumber(seqsize);printf(" bytes)");
 	fflush(stdout);
 	for(i=0;i<4;i++){ // check if header is "IDX0"
-		fread( &c , sizeof(char) , (size_t)1 , indexfile );
+		ncount = fread( &c , sizeof(char) , (size_t)1 , indexfile );
 		if( c != fileHeader[i] ) break;
 	}
 	if( i != 4 ){
@@ -426,14 +427,14 @@ void FMI_LoadIndex(char *indexfilename){
 	fgetpos(indexfile,&filepos);
 	i=0;
 	while( c!='\0' && c!=EOF ){ // get text filename size
-		fread( &c , sizeof(char) , (size_t)1 , indexfile );
+		ncount = fread( &c , sizeof(char) , (size_t)1 , indexfile );
 		i++;
 	}
 	textFilename=(char *)calloc((i),sizeof(char));
 	fsetpos(indexfile,&filepos);
-	fread( textFilename , sizeof(char) , (size_t)i , indexfile ); // get text filename chars
-	fread( &textSize , sizeof(unsigned int) , (size_t)1 , indexfile ); // counts the terminator char too, so it is actually the BWT size
-	fread( &numSamples , sizeof(unsigned int) , (size_t)1 , indexfile );
+	ncount = fread( textFilename , sizeof(char) , (size_t)i , indexfile ); // get text filename chars
+	ncount = fread( &textSize , sizeof(unsigned int) , (size_t)1 , indexfile ); // counts the terminator char too, so it is actually the BWT size
+	ncount = fread( &numSamples , sizeof(unsigned int) , (size_t)1 , indexfile );
 	#ifdef DEBUG
 	printf("\n  [textFilename=\"%s\";textSize=%u;numSamples=%u]",textFilename,textSize,numSamples);
 	fflush(stdout);
@@ -750,7 +751,7 @@ void PrintISState( char *header, PackedNumberArray *text , unsigned int *posLMS 
 	int i,j,k;
 	if(topLMS[0]!=(-1)){ // S-type suffixes
 		printf("\n%s\n",header);
-		for(i=0;i<16;i++) putchar('-'); putchar('\n');
+		for(i=0;i<16;i++){ putchar('-'); } putchar('\n');
 		k=0;
 		for(j=0;j<alphabetSize;j++){
 			i=topLMS[j];
@@ -772,11 +773,11 @@ void PrintISState( char *header, PackedNumberArray *text , unsigned int *posLMS 
 				i=nextId[i];
 				k++;
 			}
-			for(i=0;i<16;i++) putchar('-'); putchar('\n');
+			for(i=0;i<16;i++){ putchar('-'); } putchar('\n');
 		}
 	} else { // L-type suffixes
 		printf("\n%s\n",header);
-		for(i=0;i<16;i++) putchar('-'); putchar('\n');
+		for(i=0;i<16;i++){ putchar('-'); } putchar('\n');
 		k=0;
 		for(j=alphabetSize;j!=0;){
 			j--;
@@ -799,7 +800,7 @@ void PrintISState( char *header, PackedNumberArray *text , unsigned int *posLMS 
 				i=nextId[i];
 				k++;
 			}
-			for(i=0;i<16;i++) putchar('-'); putchar('\n');
+			for(i=0;i<16;i++){ putchar('-'); } putchar('\n');
 		}
 	}
 }
@@ -1270,13 +1271,17 @@ void BWTIS( PackedNumberArray *text , unsigned int textSize , int alphabetSize ,
 // TODO: check speed of FMI_LetterJump with only half 16bits counts
 void FMI_BuildIndex(char *filename, int silentmode){
 	FILE *textFile;
-	char *text, *textPtr, c;
+	char c;
 	unsigned int letterId, i, k, n;
-	unsigned int bwtPos, samplePos, textPos;
+	unsigned int samplePos, textPos;
 	unsigned int progressCounter, progressStep;
 	unsigned int letterCounts[6], letterStartPos[6];
 	PackedNumberArray *textArray;
 	IndexBlock *block;
+	#ifdef DEBUG
+	char* text, * textPtr;
+	unsigned int bwtPos;
+	#endif
 	if(silentmode) silentmode=0;
 	printf("> Opening reference genome file <%s> ... ",filename);
 	fflush(stdout);
@@ -1348,8 +1353,6 @@ void FMI_BuildIndex(char *filename, int silentmode){
 		printf("\n> ERROR: Not enough memory\n");
 		exit(0);
 	}
-	#else
-	text=NULL;
 	#endif
 	textArray = NewPackedNumberArray(textSize,6); // bit array that stores all the chars of the text in packed bits form
 	if(textArray==NULL){
@@ -1495,8 +1498,6 @@ void FMI_BuildIndex(char *filename, int silentmode){
 	}
 	printf(" OK\n");
 	fflush(stdout);
-	bwtPos=0; // just so compiler does not complain
-	textPtr=NULL;
 	#ifdef DEBUG
 	if(textSize<100) PrintBWT(text,letterStartPos);
 	textPtr = AppendToBasename(filename,".fmi"); // temporarily store index filename

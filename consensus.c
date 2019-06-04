@@ -130,8 +130,9 @@ void LoadMappedRead(MappedRead *read, FILE *readsfile, fpos_t readfpos){
 	char c;
 	unsigned int flag, i, j, n;
 	fpos_t cigarfpos;
+	int nret = 0; nret = (int)nret;
 	fsetpos(readsfile,&readfpos); // get: QNAME, FLAG, RNAME, POS, MAPQ
-	fscanf(readsfile,"%[^\t]\t%d\t%255s\t%d\t%d\t",(read->readName),&flag,(read->refName),&(read->pos),&(read->mapQual));
+	nret = fscanf(readsfile,"%[^\t]\t%d\t%255s\t%d\t%d\t",(read->readName),&flag,(read->refName),&(read->pos),&(read->mapQual));
 	if((read->mapQual)>255) (read->mapQual)=0;
 	if(flag & 16) read->strand='-';
 	else read->strand='+';
@@ -455,6 +456,7 @@ void PrintACEContig(unsigned int contigid){
 void LoadGFFLine(){
 	char c;
 	int i;
+	int nret = 0; nret = (int)nret;
 	c=fgetc(gfffile);
 	while(c=='#'){ // skip header lines
 		while(c!='\n' && c!=EOF) c=fgetc(gfffile);
@@ -470,11 +472,11 @@ void LoadGFFLine(){
 	i=0;
 	while((c=fgetc(gfffile))!='\t' && c!=EOF) if(i<19) nextgffline->type[i++]=c;
 	nextgffline->type[i]='\0';
-	fscanf(gfffile,"%d\t%d\t",&(nextgffline->start),&(nextgffline->end));
+	nret = fscanf(gfffile,"%d\t%d\t",&(nextgffline->start),&(nextgffline->end));
 	i=0;
 	while((c=fgetc(gfffile))!='\t' && c!=EOF) if(i<9) nextgffline->score[i++]=c;
 	nextgffline->score[i]='\0';
-	fscanf(gfffile,"%c\t%c\t",&(nextgffline->strand),&(nextgffline->phase));
+	nret = fscanf(gfffile,"%c\t%c\t",&(nextgffline->strand),&(nextgffline->phase));
 	i=0;
 	while((c=fgetc(gfffile))!='\n' && c!=EOF) if(i<255) nextgffline->attributes[i++]=c;
 	nextgffline->attributes[i]='\0';
@@ -510,13 +512,15 @@ void GenerateConsensus(char **argsvector, int argscount){
 	unsigned int numcontigs, contigsize, mincontigsize, maxcontigsize;
 	long long int progresscounter, progressstep;
 	unsigned char outputfasta, outputace, outputvcf, outputgff, outputcounts, outputstrandcounts;
-	unsigned char fromtapyr, onefileperref, allrefsatonce, bothstrands;
+	unsigned char fromtapyr, onefileperref, bothstrands;
+	//unsigned char allrefsatonce; // TODO: implement this
 	int ploidy, mincovarg, minmapqarg;
 	char *prevreadname;
 	unsigned char numreadhits, numreadhitsinallrefs, maxnumreadhits, sameread;
 	unsigned int *prevreadhitsids;
 	unsigned char **numreadhitsbyid;
 	float normcount;
+	int nret = 0; nret = (int)nret;
 
 	//fpos_t test;
 	
@@ -626,7 +630,7 @@ void GenerateConsensus(char **argsvector, int argscount){
 		free(string);
 		string=NULL;
 	}
-	allrefsatonce=0;
+	//allrefsatonce=0;
 	printf("> Loading reference genome file <%s> ... ",reffilename);
 	fflush(stdout);
 	if((reffile=fopen(reffilename,"r"))==NULL){
@@ -1053,7 +1057,7 @@ _create_output_files:
 				while(c!='\t' && c!=EOF) c=fgetc(samfile); // skip ref label
 			}
 			j=0;
-			fscanf(samfile,"%u",&j); // get read mapped position
+			nret = fscanf(samfile,"%u",&j); // get read mapped position
 			if(j==0 || j>refsize){ // if the position is invalid, go to next read
 				while(c!='\n' && c!=EOF) c=fgetc(samfile);
 				continue;
@@ -1064,7 +1068,7 @@ _create_output_files:
 				while(c!='\t' && c!=EOF) c=fgetc(samfile);
 			}
 			n=0;
-			fscanf(samfile,"%u",&n); // get mapping quality
+			nret = fscanf(samfile,"%u",&n); // get mapping quality
 			if(n>255) n=0; // limit value
 			totalmapqsum+=n;
 			for(i=0;i<1;i++){ // advance 1 more tab (CIGAR string)

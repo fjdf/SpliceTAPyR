@@ -1,5 +1,5 @@
 CC        = gcc
-EXEC      = splicetapyr
+EXEC      = tapyr
 CFLAGS    = -Wall -Wextra -Wunused -D_FILE_OFFSET_BITS=64
 CGDB      = -g -ggdb -dH -DGDB
 CDEBUG    = -DDEBUG
@@ -11,7 +11,7 @@ CHDRS     = $(wildcard *.h)
 TXTS      = $(wildcard *.txt README* LICENSE*)
 SCRIPTS   = $(wildcard Makefile* *.sh)
 
-NAME	:= "SpliceTAPyR"
+NAME	:= "TAPyR"
 VERSION	:= $(shell sed -n 's/.*VERSION \"\(.*\)\".*/\1/p' version.h)
 CPUARCH	:= $(shell uname -m)
 

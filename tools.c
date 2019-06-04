@@ -450,14 +450,16 @@ void freada64be(uint64_t *dest, int count, FILE *file){
 
 // reads a 16bit big-endian integer from a file and converts it to little-endian
 void fread16be(uint16_t *dest, FILE *file){
-	fread(dest,sizeof(uint16_t),(size_t)1,file);
+	size_t ncount = fread(dest,sizeof(uint16_t),(size_t)1,file);
 	(*dest) = ((*dest) << 8) | ((*dest) >> 8);
+	ncount = (size_t)ncount;
 }
 
 // reads a 32bit big-endian integer from a file and converts it to little-endian
 void fread32be(uint32_t *dest, FILE *file){
-	fread(dest,sizeof(uint32_t),(size_t)1,file);
+	size_t ncount = fread(dest,sizeof(uint32_t),(size_t)1,file);
 	(*dest) = ((*dest) << 24) | (((*dest) & 0x0000FF00) << 8) | (((*dest) & 0x00FF0000) >> 8) | ((*dest) >> 24);
+	ncount = (size_t)ncount;
 }
 
 // Converts a SFF file to the FASTQ format
@@ -518,6 +520,7 @@ void ConvertSFF(char *sfffilename){
 	char *sff_name;
 	char *sff_bases;
 	uint8_t *sff_quals;
+	size_t ncount = 0; ncount = (size_t)ncount;
 	readscount=0;
 	charscount=0;
 	printf("> Opening SFF file <%s> ... ",sfffilename);
@@ -688,7 +691,7 @@ void ConvertSFF(char *sfffilename){
 			max_name_length = sff_name_length;
 			sff_name=(char *)realloc(sff_name,(max_name_length+1)*sizeof(char));
 		}
-		fread(sff_name,sizeof(char),(size_t)sff_name_length,sfffile); // name[name_length]
+		ncount = fread(sff_name,sizeof(char),(size_t)sff_name_length,sfffile); // name[name_length]
 		sff_name[sff_name_length] = '\0'; // add terminator char to string
 		padding_size = ( ( 8 - ( ( 16 + sff_name_length ) & 7 ) ) & 7 );
 		n = ( padding_size + 2*sff_number_of_flows + sff_number_of_bases ); // skip: eight_byte_padding[padding_size] + flowgram_values[2][number_of_flows] + flow_index_per_base[number_of_bases]
@@ -701,13 +704,13 @@ void ConvertSFF(char *sfffilename){
 		}
 		n = ( start_base_pos ); // skip the left clipped bases
 		for(i=0;i<n;i++) c=fgetc(sfffile);
-		fread(sff_bases,sizeof(char),(size_t)number_of_bases,sfffile); // bases[number_of_bases]
+		ncount = fread(sff_bases,sizeof(char),(size_t)number_of_bases,sfffile); // bases[number_of_bases]
 		sff_bases[number_of_bases] = '\0'; // add terminator char to string
 		n = ( sff_number_of_bases - end_base_pos - 1 ); // skip the right clipped bases
 		for(i=0;i<n;i++) c=fgetc(sfffile);
 		n = ( start_base_pos ); // skip the left clipped qualities
 		for(i=0;i<n;i++) c=fgetc(sfffile);
-		fread(sff_quals,sizeof(uint8_t),(size_t)number_of_bases,sfffile); // quality_scores[number_of_bases]
+		ncount = fread(sff_quals,sizeof(uint8_t),(size_t)number_of_bases,sfffile); // quality_scores[number_of_bases]
 		for(i=0;i<number_of_bases;i++) sff_quals[i] += 33; // convert quality scores to Sanger format (Phred+33)
 		sff_quals[number_of_bases] = '\0'; // add terminator char to string
 		n = ( sff_number_of_bases - end_base_pos - 1 ); // skip the right clipped qualities
@@ -736,6 +739,7 @@ void CalculateCoverage(char *positionsfilename, int genomesize){
 	int readcount,pos,length,numerrors,filledposcount,totalreadsize,maxreadsize;
 	double coverage;
 	char c,*readdesc;
+	int nret = 0; nret = (int)nret;
 	printf("> Opening Aligned Positions file <%s> ... ",positionsfilename);
 	fflush(stdout);
 	if((positionsfile=fopen(positionsfilename,"r"))==NULL){
@@ -768,7 +772,7 @@ void CalculateCoverage(char *positionsfilename, int genomesize){
 		c=fgetc(positionsfile);
 		if(c=='>' || c==EOF) continue; // skip empty reads
 		ungetc(c,positionsfile);
-		fscanf(positionsfile,"%d %d %d\n",&pos,&length,&numerrors);
+		nret = fscanf(positionsfile,"%d %d %d\n",&pos,&length,&numerrors);
 		if(length>maxreadsize) maxreadsize=length;
 		if(pos<0) pos=(-pos);
 		totalreadsize+=length;
@@ -808,6 +812,7 @@ void ProcessSamFile(char *samfilename, int totalnumreads){
 	int numreads,numalignedreads;
 	unsigned int flag;
 	char c, strand;
+	int nret = 0; nret = (int)nret;
 	printf("> Opening SAM file <%s> ... ",samfilename);
 	fflush(stdout);
 	if((samfile=fopen(samfilename,"r"))==NULL){
@@ -852,20 +857,20 @@ void ProcessSamFile(char *samfilename, int totalnumreads){
 		n=i;
 		for(i=0;i<n;i++) fputc(readdesc[i],coveragefile);
 		fputc('\n',coveragefile);
-		fscanf(samfile,"%u\t%c",&flag,&c); // flag and reference
+		nret = fscanf(samfile,"%u\t%c",&flag,&c); // flag and reference
 		if( flag & 16 ) strand='-';
 		else strand='+';
 		if(c!='*'){
 			if(!sameread) numalignedreads++;
 			while(c!='\t') c=fgetc(samfile); // rest of genome description
-			fscanf(samfile,"%d\t",&pos); // position
+			nret = fscanf(samfile,"%d\t",&pos); // position
 			c=fgetc(samfile);
 			while(c!='\t') c=fgetc(samfile); // mapping quality
 			numerrors=0;
 			c=fgetc(samfile);
 			while(c!='\t'){ // CIGAR string
 				ungetc(c,samfile);
-				fscanf(samfile,"%d%c",&n,&c);
+				nret = fscanf(samfile,"%d%c",&n,&c);
 				if( c=='I' || c=='D' ) numerrors+=n;
 				c=fgetc(samfile);
 			}
@@ -901,6 +906,7 @@ void Process454File(char *rsfilename){
 	int i,startpos,endpos,size,noerrorpct,readpct,numerrors;
 	int numreads,numalignedreads;
 	char c,strand;
+	int nret = 0; nret = (int)nret;
 	printf("> Opening 454 file <%s> ... ",rsfilename);
 	fflush(stdout);
 	if((rsfile=fopen(rsfilename,"r"))==NULL){
@@ -944,11 +950,11 @@ void Process454File(char *rsfilename){
 		}
 		numalignedreads++;
 		while(c!='\t') c=fgetc(rsfile); // mapping status
-		fscanf(rsfile,"%d\t",&noerrorpct); // mapped accuracy percentage
-		fscanf(rsfile,"%d\t",&readpct); // percentage of read mapped
+		nret = fscanf(rsfile,"%d\t",&noerrorpct); // mapped accuracy percentage
+		nret = fscanf(rsfile,"%d\t",&readpct); // percentage of read mapped
 		c=fgetc(rsfile);
 		while(c!='\t') c=fgetc(rsfile); // reference description
-		fscanf(rsfile,"%d\t%d\t%c",&startpos,&endpos,&strand); // start position, end position, strand
+		nret = fscanf(rsfile,"%d\t%d\t%c",&startpos,&endpos,&strand); // start position, end position, strand
 		size=(endpos-startpos+1);
 		readpct=((size*readpct)/100);
 		noerrorpct=((readpct*noerrorpct)/100);
@@ -971,6 +977,7 @@ void ProcessMapFile(char *mapfilename, int totalnumreads){
 	int i,n,startpos,endpos,length,sameread,numerrors;
 	int numalignedreads;
 	char c, strand;
+	int nret = 0; nret = (int)nret;
 	printf("> Opening MAP file <%s> ... ",mapfilename);
 	fflush(stdout);
 	if((mapfile=fopen(mapfilename,"r"))==NULL){
@@ -1015,12 +1022,12 @@ void ProcessMapFile(char *mapfilename, int totalnumreads){
 		n=i;
 		for(i=0;i<(n-1);i++) fputc(readdesc[i],coveragefile);
 		fputc('\n',coveragefile);
-		fscanf(mapfile,"%d\t",&numerrors); // edit distance
+		nret = fscanf(mapfile,"%d\t",&numerrors); // edit distance
 		for(i=0;i<8;i++){ // other information
 			c=fgetc(mapfile);
 			while(c!='\t') c=fgetc(mapfile);
 		}
-		fscanf(mapfile,"%c\t%d\t%d",&strand,&startpos,&endpos);
+		nret = fscanf(mapfile,"%c\t%d\t%d",&strand,&startpos,&endpos);
 		length=(endpos-startpos+1);
 		fprintf(coveragefile,"%c%d %d %d\n",strand,startpos,length,numerrors);
 		while(c!='\n') c=fgetc(mapfile);
@@ -1043,6 +1050,7 @@ void ProcessSoapFile(char *soapfilename, int totalnumreads){
 	int i,pos,length,numtabs;
 	int numalignedreads;
 	char c,strand;
+	int nret = 0; nret = (int)nret;
 	printf("> Opening SOAP file <%s> ... ",soapfilename);
 	fflush(stdout);
 	if((soapfile=fopen(soapfilename,"r"))==NULL){
@@ -1074,10 +1082,10 @@ void ProcessSoapFile(char *soapfilename, int totalnumreads){
 			c=fgetc(soapfile);
 			if(c=='\t') numtabs++;
 		}
-		fscanf(soapfile,"%d\t%c\t",&length,&strand);
+		nret = fscanf(soapfile,"%d\t%c\t",&length,&strand);
 		c='\n';
 		while(c!='\t') c=fgetc(soapfile);
-		fscanf(soapfile,"%d\t",&pos);
+		nret = fscanf(soapfile,"%d\t",&pos);
 		if(strand=='-') pos=-pos;
 		fprintf(coveragefile,"%d %d\n",pos,length);
 		while(c!='\n') c=fgetc(soapfile);
@@ -1100,6 +1108,7 @@ void ProcessBowtieFile(char *bowtiefilename, int totalnumreads){
 	int i,pos,length;
 	int numalignedreads;
 	char c,strand;
+	int nret = 0; nret = (int)nret;
 	printf("> Opening BOWTIE file <%s> ... ",bowtiefilename);
 	fflush(stdout);
 	if((bowtiefile=fopen(bowtiefilename,"r"))==NULL){
@@ -1125,10 +1134,10 @@ void ProcessBowtieFile(char *bowtiefilename, int totalnumreads){
 			c=fgetc(bowtiefile);
 		}
 		fputc('\n',coveragefile);
-		fscanf(bowtiefile,"%c\t",&strand);
+		nret = fscanf(bowtiefile,"%c\t",&strand);
 		c='\n';
 		while(c!='\t') c=fgetc(bowtiefile);
-		fscanf(bowtiefile,"%d\t",&pos);
+		nret = fscanf(bowtiefile,"%d\t",&pos);
 		if(strand=='-') pos=-pos;
 		length=0;
 		while((c=fgetc(bowtiefile))!='\t') length++;

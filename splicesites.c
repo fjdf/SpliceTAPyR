@@ -17,6 +17,7 @@ typedef struct _SpliceSite {
 
 static SpliceSite *spliceSitesArray = NULL; // array of all splice sites, indexed by id; position 0 of this array is never used
 static unsigned int *genomeSpliceSiteBlocks = NULL; // contains the id of the first splice site found on that block's range of positions
+static unsigned int lastGenomePos = 0;
 static unsigned int numSpliceSites = 0;
 static unsigned int maxNumSpliceSites = 0;
 static unsigned int numUniqueSpliceSites = 0;
@@ -42,6 +43,7 @@ void InitializeSpliceSitesArray(unsigned int genomeSize){
 	genomeSpliceSiteBlocks = (unsigned int *)calloc(numBlocks, sizeof(unsigned int));
 	spliceSitesArray = (SpliceSite *)malloc((1 + numMoreSSIdsToAdd) * sizeof(SpliceSite));
 	maxNumSpliceSites = numMoreSSIdsToAdd;
+	lastGenomePos = (genomeSize - 1);
 	numSpliceSites = 0;
 	numUniqueSpliceSites = 0;
 	#ifdef DEBUG
@@ -63,6 +65,8 @@ unsigned int GetOppositePositionIfSpliceSiteExists(unsigned int *position) {
 	unsigned int blockId, nextBlockId, ssId, ssPos, lowPos, highPos;
 	lowPos = ((*position) - checkLengthAroundSS);
 	highPos = ((*position) + checkLengthAroundSS);
+	if (lowPos >= lastGenomePos) lowPos = 0; // prevent underflow
+	if (highPos >= lastGenomePos) highPos = lastGenomePos; // prevent going further that the size of the genome
 	blockId = (lowPos >> ssBlocksShift); // by summing or subtracting positions, we can fall on a different block
 	nextBlockId = (highPos >> ssBlocksShift);
 	ssId = genomeSpliceSiteBlocks[blockId];

@@ -17,5 +17,7 @@ int readsSizes[2]; // sizes of each one of the paired-end reads
 FILE *pairFiles[2]; // both reads files in paired-end mode
 char *pairFilenames[2]; // both reads filenames in paired-end mode
 
+#if defined DEBUG || defined DEBUGDP
 // global variables that need to be accessible by the dynamic programming functions
 FILE *debugfile; // file to write debug results
+#endif

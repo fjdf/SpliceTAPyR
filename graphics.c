@@ -232,7 +232,7 @@ void DrawFilledRectangle(int x, int y, int xsize, int ysize, uint8_t color){
 }
 
 
-void CreateGlobalMap(unsigned int startpos, unsigned int endpos, unsigned int numpos, unsigned int refsize, char *reflabel, char *readsfilename){
+void CreateGlobalMap(unsigned int startpos, unsigned int endpos, unsigned int numpos, char *readsfilename){
 	FILE *file;
 	unsigned char *poscount;
 	unsigned int *rowcount;
@@ -243,10 +243,7 @@ void CreateGlobalMap(unsigned int startpos, unsigned int endpos, unsigned int nu
 	unsigned int x, y, startx, starty;
 	uint8_t color;
 	char c;
-	/**/
-	refsize=0;
-	reflabel=NULL;
-	/**/
+	int nret = 0; nret = (int)nret;
 	printf("> Allocating space for positions from %u to %u ... ",(startpos+1),(endpos+1)); // +1 for 1-based positions
 	fflush(stdout);
 	poscount=(unsigned char *)calloc(numpos,sizeof(unsigned char));
@@ -285,7 +282,7 @@ void CreateGlobalMap(unsigned int startpos, unsigned int endpos, unsigned int nu
 			while(c!='\t' && c!=EOF) c=fgetc(file);
 		}
 		readstartpos=0;
-		fscanf(file,"%u",&readstartpos); // get read mapped position
+		nret = fscanf(file,"%u",&readstartpos); // get read mapped position
 		readstartpos--; // fix 1-based location
 		for(i=0;i<6;i++){ // advance 6 more tabs
 			c=fgetc(file);
@@ -415,7 +412,7 @@ void CreateGlobalMap(unsigned int startpos, unsigned int endpos, unsigned int nu
 }
 
 // TODO: add support for padding operation (concatenate strings)
-void CreateLocalMap(unsigned int startpos, unsigned int endpos, unsigned int numpos, unsigned int refsize, char *reflabel, char *reffilename, char *readsfilename, char*gfffilename){
+void CreateLocalMap(unsigned int startpos, unsigned int endpos, unsigned int numpos, unsigned int refsize, char *reffilename, char *readsfilename, char*gfffilename){
 	FILE *file, *gfffile;
 	char *refchars, **chars, ***inschars, *string;
 	unsigned short int **freeahead, **charcount;
@@ -429,6 +426,7 @@ void CreateLocalMap(unsigned int startpos, unsigned int endpos, unsigned int num
 	char c, cigarcode, *read;
 	int cigarcount, numcigarops, extrareadsize;
 	fpos_t cigarstringpos, sequencepos;
+	int nret = 0; nret = (int)nret;
 	if(numpos>(unsigned int)USHRT_MAX){
 		printf("\n> ERROR: Sequence range is too large to draw local mapping plot\n");
 		exit(0);
@@ -443,7 +441,6 @@ void CreateLocalMap(unsigned int startpos, unsigned int endpos, unsigned int num
 		}
 		printf("OK\n");
 	}
-	reflabel=NULL;
 	printf("> Allocating space for positions from %u to %u ... ",(startpos+1),(endpos+1)); // +1 because SAM positions start at 1 and these passed arguments start at 0
 	fflush(stdout);
 	numpos++; // +1 to account for insertions after the last position
@@ -519,7 +516,7 @@ void CreateLocalMap(unsigned int startpos, unsigned int endpos, unsigned int num
 			while(c!='\t' && c!=EOF) c=fgetc(file);
 		}
 		readstartpos=0;
-		fscanf(file,"%u",&readstartpos); // get read mapped position
+		nret = fscanf(file,"%u",&readstartpos); // get read mapped position
 		if(readstartpos!=0) readstartpos--; // fix 1-based location
 		for(i=0;i<2;i++){ // advance 2 more tabs (CIGAR string)
 			c=fgetc(file);
@@ -765,7 +762,7 @@ void CreateLocalMap(unsigned int startpos, unsigned int endpos, unsigned int num
 				while(c!='\t' && c!='\n' && c!=EOF) c=fgetc(gfffile);
 			}
 			if(c!='\t') continue;
-			fscanf(gfffile,"%u\t%u",&i,&j); // get: start, end
+			nret = fscanf(gfffile,"%u\t%u",&i,&j); // get: start, end
 			if(i!=0) i--;
 			if(j!=0) j--;
 			if(j<startpos || i>endpos){ // positions not inside the range of the image
@@ -1154,10 +1151,10 @@ void DrawMappingPlot(char *reffilename, char *readsfilename, char *gfffilename, 
 	if( startpos>=refsize ) startpos=0;
 	if( endpos<=startpos || endpos>refsize ) endpos=(refsize-1);
 	numpos=(endpos-startpos+1); // size of the array of counts
-	if (numpos > 10000) {
-		CreateGlobalMap(startpos, endpos, numpos, refsize, reflabel, readsfilename); // if there are more than 10000 positions to draw, create global map
+	if (numpos > 10000) { // decide whether to create global or local map depending on image size for all positions
+		CreateGlobalMap(startpos, endpos, numpos, readsfilename); // if there are more than 10000 positions to draw, create global map
 	} else {
-		CreateLocalMap(startpos,endpos,numpos,refsize,reflabel,reffilename,readsfilename,gfffilename); // decide whether to create global or local map depending on image size for all positions
+		CreateLocalMap(startpos,endpos,numpos,refsize,reffilename,readsfilename,gfffilename);
 	}
 	if (numpos == refsize) strcpy(filenamesuffix, ".bmp");
 	else sprintf(filenamesuffix, "(%u-%u).bmp", (startpos + 1), (endpos + 1));
