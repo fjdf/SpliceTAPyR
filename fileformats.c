@@ -40,6 +40,7 @@ char AnalyzeFastaReads(int preprocess, int verbose){
 	char c;
 	int readSize, avgReadSize, readNameSize;
 	int totalNumReads, maxReadSize, maxReadNameSize;
+	long int filepos;
 	/*
 	FILE *readsfile;
 	readsfile = fopen(readsfilename,"r");
@@ -48,12 +49,16 @@ char AnalyzeFastaReads(int preprocess, int verbose){
 		exit(0);
 	}
 	*/
+	filepos = ftell(readsFile); // save initial file position
 	c = fgetc(readsFile);
 	if( c != '>' ) {
 		printf("> ERROR: Invalid FASTA file\n");
 		exit(0);
 	}
-	if(verbose) printf("(FASTA) ");
+	if(verbose){
+		printf("(FASTA) ");
+		if(filepos!=0) printf("(split) "); // detect partial/split file
+	}
 	fflush(stdout);
 	totalNumReads = 0;
 	maxReadSize = 0;
@@ -85,7 +90,8 @@ char AnalyzeFastaReads(int preprocess, int verbose){
 		printf("\n> ERROR: No valid data in reads file\n");
 		exit(0);
 	}
-	rewind(readsFile); // back to beginning of file
+	//rewind(readsFile); // back to beginning of file
+	fseek(readsFile, filepos, SEEK_SET); // restore initial file position
 	if(!preprocess) return 'F';
 	if(verbose){
 		avgReadSize = ( avgReadSize / totalNumReads );
@@ -145,6 +151,7 @@ char AnalyzeFastaQReads(int preprocess, int verbose){
 	char c;
 	int readSize, avgReadSize, readNameSize;
 	int totalNumReads, maxReadSize, maxReadNameSize;
+	long int filepos;
 	/*
 	FILE *readsfile;
 	readsfile = fopen(readsfilename,"r");
@@ -153,12 +160,16 @@ char AnalyzeFastaQReads(int preprocess, int verbose){
 		exit(0);
 	}
 	*/
+	filepos = ftell(readsFile); // save initial file position
 	c = fgetc(readsFile);
 	if( c != '@' ) {
 		printf("> ERROR: Invalid FASTQ file\n");
 		exit(0);
 	}
-	if(verbose) printf("(FASTQ) ");
+	if(verbose){
+		printf("(FASTQ) ");
+		if(filepos!=0) printf("(split) "); // detect partial/split file
+	}
 	fflush(stdout);
 	totalNumReads = 0;
 	maxReadSize = 0;
@@ -196,7 +207,8 @@ char AnalyzeFastaQReads(int preprocess, int verbose){
 		printf("\n> ERROR: No valid data in reads file\n");
 		exit(0);
 	}
-	rewind(readsFile); // back to beginning of file
+	//rewind(readsFile); // back to beginning of file
+	fseek(readsFile, filepos, SEEK_SET); // restore initial file position
 	if(!preprocess) return 'Q';
 	if(verbose){
 		avgReadSize = ( avgReadSize / totalNumReads );

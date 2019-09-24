@@ -1286,8 +1286,8 @@ void RunSeededAlignment(){
 				if(c=='f' || c=='q'){ // two files, one for each mate reads
 					pairFiles[0]=readsFiles[(currentReadsFile)];
 					pairFiles[1]=readsFiles[(currentReadsFile+1)];
-					rewind(pairFiles[0]);
-					rewind(pairFiles[1]);
+					//rewind(pairFiles[0]); // disable rewind in case of partial/split files
+					//rewind(pairFiles[1]);
 					if(c=='f') LoadNextRead=LoadNextReadPairFromFasta;
 					else if(c=='q') LoadNextRead=LoadNextReadPairFromFastaQ;
 					currentReadsFile++; // advance to 2nd pair, so next time it will load a new file
@@ -1302,12 +1302,13 @@ void RunSeededAlignment(){
 				currentPair=1; // this will change to 0 the next time we enter the loop
 			} else { // uppercase filetype means single reads file
 				pairedEndReadsMode=0;
-				rewind(readsFile);
+				//rewind(readsFile); // disable rewind in case of partial/split files
 				if(c=='F'){ // set correct read loading functions according to file type
 					LoadNextRead=LoadNextReadFromFasta;
 				} else if(c=='Q'){
 					LoadNextRead=LoadNextReadFromFastaQ;
 				} else if(c=='S'){
+					rewind(readsFile);
 					AnalyzeSffReads(0,0); // load in memory the correct SFF variables for this SFF file
 					LoadNextRead=LoadNextReadFromSff;
 				}
@@ -1328,9 +1329,9 @@ void RunSeededAlignment(){
 				for(i=0;i<numPairs;i++) if(pairFiles[i]!=NULL) currentFileData += (long long int)ftell(pairFiles[i]); // combined file pos of both pairs (or only one) (not NULL because 2nd file in P.E. SFF does not exist)
 				progress = (( (double) currentFileData ) / ( (double) totalFilesData )) * 100.0;
 				timeleft = ( ( (double) ( totalFilesData - currentFileData ) * GetElapsedTime(starttb) ) / ( (double) currentFileData ) );
-				#ifdef __unix__
+				//#ifdef __unix__
 				PrintProgressBar(progress,1);
-				#endif
+				//#endif
 				printf("\n> Aligning reads... %3.2lf%% (%d processed: %d aligned + %d unaligned) ",progress,numReads,numAlignedReads,numUnalignedReads);
 				PrintTime(timeleft);
 				printf("left");
@@ -2513,10 +2514,13 @@ void LoadReferenceGenome(char *basefilename){
 }
 
 // NOTE: uppercase file type means single-read mode and lowercase file types means paired-read mode
-void LoadReadsFiles(){
+void LoadReadsFiles(int allowSplit){
 	int n;
 	char c;
 	long long int filesize;
+	fpos_t filepos;
+	int numlines;
+	char prevchar;
 	readsFiles=(FILE **)calloc(numReadsFiles,sizeof(FILE *)); // allocate arrays for all reads files
 	readsFileTypes=(char *)calloc(numReadsFiles,sizeof(char));
 	minDists=(int *)calloc(numReadsFiles,sizeof(int));
@@ -2536,7 +2540,52 @@ void LoadReadsFiles(){
 		PrintNumber(filesize);
 		printf(" bytes) ");
 		totalFilesData+=filesize;
-		c=fgetc(readsFiles[n]); // decide file format based on the file's first char
+
+		if(!allowSplit){
+			c=fgetc(readsFiles[n]); // decide file format based on the file's first char: '>'=FASTA ; '@'=FASTQ ; '.'=SFF
+			rewind(readsFiles[n]); // back to beginning of file
+		} else { // allow broken/split FASTA/FASTQ reads files
+			prevchar = '\n';
+			c = fgetc(readsFiles[n]);
+			while ( c!=EOF && ( prevchar!='\n' || (c!='>' && c!='@' && c!='+') ) ) { // get first symbol among '>', '@' and '+' at the beginning of a line
+				prevchar = c;
+				c = fgetc(readsFiles[n]);
+			}
+			prevchar = c; // save first valid symbol and its position
+			ungetc(c, readsFiles[n]);
+			fgetpos(readsFiles[n], &filepos);
+			numlines = 0;
+			while (c != EOF) { // search for the second valid symbol
+				c = fgetc(readsFiles[n]);
+				if (c == '\n') {
+					numlines++;
+					c = fgetc(readsFiles[n]); // get first char of next line
+					if (c == '>' || c == '@' || c == '+') break;
+				}
+			}
+			if (prevchar == '>' && c == '>') { // two '>'s in a row: FASTA file; 1st read at 1st '>' char
+				c = '>';
+				fsetpos(readsFiles[n], &filepos); // set file cursor at beginning for 1st read
+			} else if (prevchar == '@' && c=='+') { // '@' followed by '+': FASTQ file; 1st read at 1st '@' char
+				c = '@';
+				fsetpos(readsFiles[n], &filepos); // set file cursor at beginning for 1st read
+			} else if (c == '@') { // '@' preceeded by any char (that 1st char was a quality code or the identifier of the quality part): FASTQ file; 1st read at this 2nd '@' char
+				c = '@';
+				ungetc(c, readsFiles[n]);
+				fgetpos(readsFiles[n], &filepos);
+			} else if (prevchar == '+') { // '+' followed by a char other than '@' (that case was already handled before): FASTQ file; 1st read is at the next '@' ahead in the file
+				while (c != EOF && c != '\n') c = fgetc(readsFiles[n]); // get to the end of quality codes line
+				c = fgetc(readsFiles[n]); // first char of next line
+				if (c == '@') {
+					ungetc(c, readsFiles[n]);
+					fgetpos(readsFiles[n], &filepos); // save position of beginning of read
+				}
+				else c = '?';
+			} else { // other invalid combination
+				c = '?';
+			}
+		}
+
 		if(c=='>'){ // FASTA format
 			AnalyzeReads=AnalyzeFastaReads;
 			LoadNextRead=LoadNextReadFromFasta;
@@ -2550,7 +2599,6 @@ void LoadReadsFiles(){
 			printf("\n> ERROR: Invalid reads file format\n");
 			exit(-1);
 		}
-		rewind(readsFiles[n]); // back to beginning of file
 		readsFile=readsFiles[n]; // set both these two varibles because they are going to be needed by the AnalyzeReads function
 		readsFilename=readsFilenames[n];
 		readsFileTypes[n]=AnalyzeReads(0,1); // analyze reads file and store file type
@@ -2624,7 +2672,6 @@ int main(int argc, char *argv[]) {
 	#if defined DEBUG || defined DEBUGDP
 	char* debugfilename;
 	#endif
-	//for(n=0;n<=255;n++){printf("[%.3d:%.2X:'%c']",n,n,n);}printf("\n");
 	ConsoleDrawBoxChar("TL",0);
 	n=(19+(int)strlen(VERSION));
 	ConsoleDrawBoxChar("T",n);
@@ -2644,7 +2691,7 @@ int main(int argc, char *argv[]) {
 	ConsoleDrawBoxChar("B",n);
 	ConsoleDrawBoxChar("BR",0);
 	printf("\n");
-	if(argc<3){
+	if(argc<3 || (argv[1][0]=='-')){
 		printf("> USAGE:\n");
 		printf("\nBuild index:\n");
 		ConsoleSetTextColor(COLOR_BRIGHT, COLOR_WHITE, COLOR_BLACK);
@@ -2654,7 +2701,7 @@ int main(int argc, char *argv[]) {
 		printf("\tOutput:\t\t'<ref-file>.fmi' (FMI format)\n");
 		printf("\nMap reads:\n");
 		ConsoleSetTextColor(COLOR_BRIGHT, COLOR_WHITE, COLOR_BLACK);
-		printf("\t%s <index-file> <reads-files> <options>\n",argv[0]);
+		printf("\t%s <index-file> <reads-file(s)> <options>\n",argv[0]);
 		ConsoleResetTextColor();
 		printf("\t<index-file>\tindexed reference genome file ( required ; format=FMI )\n");
 		printf("\t<reads-files>\tfile(s) with reads to map ( required ; format=FASTA,FASTQ,SFF )\n");
@@ -2664,6 +2711,7 @@ int main(int argc, char *argv[]) {
 		printf("\t-b\t\treport only the Best read hit instead of all hits ( optional ; default=off )\n");
 		printf("\t-o\t\tuse this Output file name instead of default ( optional ; default=none )\n");
 		printf("\t-u\t\tsave Unmapped reads to file ( optional ; default=off )\n");
+		printf("\t-m\t\tallow Multi-splitted partial FASTA/FASTQ files ( optional ; default=off )\n");
 		printf("\tOutput:\t\t'<reads-file>.sam' (SAM format)\n");
 		printf("\nOptions for Mate-Pair / Paired-End reads:\n");
 		//printf("\t<reads-file1>\tfile with 1st/left mates of the read pairs ( required ; format=FASTA,FASTQ,SFF )\n");
@@ -2837,7 +2885,7 @@ int main(int argc, char *argv[]) {
 	while(n<argc){ // get index filename
 		if(argv[n][0]=='-'){
 			c=argv[n][1];
-			if(c=='p'||c=='r'||c=='s'||c=='b'||c=='u'||c=='P'||c=='R'||c=='S'||c=='B'||c=='U') n++; // skip options with no content (TODO: missing "SS" and "OS")
+			if(c=='p'||c=='r'||c=='s'||c=='b'||c=='u'||c=='m'||c=='P'||c=='R'||c=='S'||c=='B'||c=='U') n++; // skip options with no content (TODO: missing "SS" and "OS")
 			else n+=2; // skip options name and its content
 			continue;
 		}
@@ -2854,7 +2902,7 @@ int main(int argc, char *argv[]) {
 	while(n<argc){ // get all reads filenames
 		if(argv[n][0]=='-'){
 			c=argv[n][1];
-			if(c=='p'||c=='r'||c=='s'||c=='b'||c=='u'||c=='P'||c=='R'||c=='S'||c=='B'||c=='U') n++; // skip options with no content (TODO: missing "SS" and "OS")
+			if(c=='p'||c=='r'||c=='s'||c=='b'||c=='u'||c=='m'||c=='P'||c=='R'||c=='S'||c=='B'||c=='U') n++; // skip options with no content (TODO: missing "SS" and "OS")
 			else n+=2; // skip options name and its content
 			continue;
 		}
@@ -2873,7 +2921,7 @@ int main(int argc, char *argv[]) {
 	sizeBWT = FMI_GetBWTSize(); // size of the BWT to later initialize the pointers in the index search
 	
 	LoadReferenceGenome(indexfilename);
-	LoadReadsFiles();
+	LoadReadsFiles( ParseArgument(argc, argv, "M", 0) );
 
 	nd=0;
 	ns=0;
@@ -3016,9 +3064,9 @@ int main(int argc, char *argv[]) {
 	}
 	printf("\n");
 
-	#ifdef __unix__
+	//#ifdef __unix__
 	PrintProgressBar(0.0,0); // initialize progress bar
-	#endif
+	//#endif
 	printf("> Aligning reads... 0.00%%");
 	fflush(stdout);
 	ftime(&starttb);
@@ -3026,9 +3074,9 @@ int main(int argc, char *argv[]) {
 	ftime(&endtb);
 	timetb=((endtb.time) + (endtb.millitm)/1000.0) - ((starttb.time) + (starttb.millitm)/1000.0);
 	FMI_FreeIndex();
-	#ifdef __unix__
+	//#ifdef __unix__
 	PrintProgressBar(100.0,1); // print 100% progress
-	#endif
+	//#endif
 	printf("\n> Aligning reads... 100.00%% (");
 	PrintUnsignedNumber(numReads);printf(" processed : ");
 	PrintUnsignedNumber(numAlignedReads);printf(" aligned + ");
